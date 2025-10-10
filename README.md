@@ -48,6 +48,84 @@ Invoke-WebRequest -Uri "https://github.com/your-org/wtouch/releases/latest/downl
 
 After installation, add `$destination` to your `PATH` if it is not already present.
 
+### Available implementations
+
+`wtouch` now ships four standalone implementations that can live side by side.
+Each one resides in its own subdirectory (or the original `src` tree for the
+native build) so that installing one will not interfere with the others:
+
+* **Native C++ binary** – `src/touch.cpp`, built with CMake as described above.
+* **Bash script** – `bash/wtouch.sh`, a wrapper around the host `touch`.
+* **Portable C utility** – `c/wtouch.c`, a cross-platform reimplementation.
+* **Python script** – `python/wtouch.py`, relying only on the standard library.
+
+The sections below outline how to install each flavour individually.
+
+#### Native C++ version
+
+The Windows-native C++ implementation remains the primary build. Follow the
+instructions in [Building from source](#building-from-source) to compile it with
+CMake. To install the resulting executable alongside the other versions without
+conflict, choose a unique destination filename when copying it onto your
+`PATH`, for example:
+
+```powershell
+cmake --build build --config Release
+Copy-Item build/Release/wtouch.exe "$env:ProgramFiles\\wtouch\\wtouch-cpp.exe"
+```
+
+Add the destination directory to `PATH` (if needed) so the native binary can be
+invoked as `wtouch-cpp` or renamed to your preference.
+
+#### Bash script version
+
+The Bash implementation (`bash/wtouch.sh`) is a thin wrapper around the
+platform's `touch` utility. It accepts the same flags as the native build and
+passes them straight through, so behaviour depends on the underlying `touch`
+command. To install it, copy the script somewhere on your `PATH` and make it
+executable:
+
+```bash
+install -m 0755 bash/wtouch.sh /usr/local/bin/wtouch
+```
+
+#### Portable C version
+
+The portable C implementation (`c/wtouch.c`) targets modern POSIX and Windows
+compilers. A simple `Makefile` is provided for Unix-like systems:
+
+```bash
+cd c
+make            # builds ./wtouch_c
+sudo install -m 0755 wtouch_c /usr/local/bin/wtouch_c
+```
+
+On Windows, build the same source with a toolchain such as MSVC or MinGW, for
+example:
+
+```powershell
+cl /std:c11 /W4 /EHsc wtouch.c
+```
+
+The resulting executable mirrors the command-line flags exposed by the native
+binary but relies on the host C runtime for timestamp handling.
+
+#### Python version
+
+The Python implementation (`python/wtouch.py`) is fully cross-platform and only
+depends on the standard library. Install it by copying the script to a location
+on your `PATH` or by invoking it directly with Python:
+
+```bash
+python3 python/wtouch.py [options] files...
+```
+
+To make it globally accessible:
+
+```bash
+install -m 0755 python/wtouch.py /usr/local/bin/wtouch.py
+```
+
 ## Running tests
 
 The project includes PowerShell-based integration tests that run under CTest. Tests currently target Windows and require PowerShell:
