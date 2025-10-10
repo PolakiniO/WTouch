@@ -1,5 +1,13 @@
 # WTouch
 
+```
+ _       ________                 __
+| |     / /_  __/___  __  _______/ /_
+| | /| / / / / / __ \\ / / / / ___/ __ \
+| |/ |/ / / / / /_/ / /_/ / /__/ / / /
+|__/|__/ /_/  \\____/\\__,_/\\___/_/ /_/
+```
+
 `wtouch` is a Windows-native recreation of the GNU `touch` utility. It creates files on demand and updates access or modification timestamps without altering file contents. The implementation uses Win32 APIs so it works seamlessly with Unicode paths, files, and directories.
 
 ## Features
