@@ -36,11 +36,17 @@ The resulting executable will be written to `build/Release/wtouch.exe`.
 
 ### Using CMake install
 
-Run the standard install target to copy the binary to `CMAKE_INSTALL_PREFIX` (defaults to `C:\Program Files\wtouch`):
+Run the standard install target to copy the binary to `CMAKE_INSTALL_PREFIX`
+(defaults to `C:\Program Files\wtouch`). On Windows, the installer also appends
+the chosen install directory to your user `PATH` automatically unless you opt
+out during configuration:
 
 ```powershell
 cmake --install build --config Release
 ```
+
+To skip the automatic `PATH` update, configure the project with
+`-DWTOUCH_INSTALL_ADD_TO_PATH=OFF` before running the install step.
 
 ### Using the prebuilt binary
 
@@ -82,8 +88,16 @@ cmake --build build --config Release
 Copy-Item build/Release/wtouch.exe "$env:ProgramFiles\\wtouch\\wtouch-cpp.exe"
 ```
 
-Add the destination directory to `PATH` (if needed) so the native binary can be
-invoked as `wtouch-cpp` or renamed to your preference.
+The CMake installer handles copying the binary and appending the installation
+directory to your user `PATH` by default. If you prefer to manage the process
+yourself, the helper script remains available:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-wtouch.ps1 -Variant cpp
+```
+
+Add `-SkipCopy` to update your `PATH` without copying a new binary, or
+`-SkipPathUpdate` if you would rather modify `PATH` manually.
 
 #### Bash script version
 
@@ -113,6 +127,14 @@ example:
 
 ```powershell
 cl /std:c11 /W4 /EHsc wtouch.c
+```
+
+Run the helper script to copy the resulting executable to
+`%ProgramFiles%\wtouch\wtouch-c.exe` and append that location to your user
+`PATH`. You can suppress either action with `-SkipCopy` or `-SkipPathUpdate`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-wtouch.ps1 -Variant c
 ```
 
 The resulting executable mirrors the command-line flags exposed by the native

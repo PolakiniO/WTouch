@@ -1,0 +1,24 @@
+if(NOT WIN32)
+    return()
+endif()
+
+set(_wtouch_install_prefix "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
+if(_wtouch_install_prefix STREQUAL "")
+    set(_wtouch_install_prefix "${CMAKE_INSTALL_PREFIX}")
+endif()
+file(TO_NATIVE_PATH "${_wtouch_install_prefix}" _wtouch_native_prefix)
+
+message(STATUS "wtouch: ensuring '${_wtouch_native_prefix}' is on the user PATH")
+
+set(_wtouch_installer_script "@INSTALLER_SCRIPT_NATIVE@")
+
+execute_process(
+    COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "${_wtouch_installer_script}"
+            -Destination "${_wtouch_native_prefix}"
+            -SkipCopy
+    RESULT_VARIABLE _wtouch_add_path_result
+)
+
+if(NOT _wtouch_add_path_result EQUAL 0)
+    message(WARNING "wtouch: failed to append '${_wtouch_native_prefix}' to the user PATH (exit code ${_wtouch_add_path_result}).")
+endif()
