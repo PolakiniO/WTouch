@@ -12,7 +12,7 @@
 
 ### Quick workflow overview
 
-![Demo](./assets/WTouch_Demo.gif)
+![Demo](./Assets/WTouch_Demo.gif)
 
 1. **Create or update timestamps** for one or more files with `wtouch file.txt`.
 2. **Adjust modification or access times** using the `-m` and `-a` switches.
