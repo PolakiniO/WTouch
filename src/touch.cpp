@@ -26,12 +26,32 @@ struct Options {
     bool noCreate = false;
     bool showVersion = false;
     bool showPath = false;
+    bool showHelp = false;
     std::optional<FILETIME> explicitTime;
     std::optional<ParsedTime> referenceTimes;
     std::vector<std::wstring> paths;
 };
 
 constexpr const wchar_t *kVersionString = L"1.0.0";
+
+void PrintUsage() {
+    std::wcout << L"Usage: wtouch [OPTION]... FILE..." << std::endl;
+    std::wcout << L"Update the access and modification times of each FILE." << std::endl;
+    std::wcout << std::endl;
+    std::wcout << L"Options:" << std::endl;
+    std::wcout << L"  -a             change only the access time" << std::endl;
+    std::wcout << L"  -m             change only the modification time" << std::endl;
+    std::wcout << L"  -c             do not create any files" << std::endl;
+    std::wcout << L"  -d DATE        parse DATE (YYYY-mm-dd[ HH:MM[:SS]])" << std::endl;
+    std::wcout << L"  -t STAMP       parse [[CC]YY]mmddHHMM[.SS] timestamp" << std::endl;
+    std::wcout << L"  -r FILE        use times from reference FILE" << std::endl;
+    std::wcout << L"      --         treat all following arguments as literal paths" << std::endl;
+    std::wcout << L"  -P             print the executable path" << std::endl;
+    std::wcout << L"  -V             print the program version" << std::endl;
+    std::wcout << L"  --help         display this help and exit" << std::endl;
+    std::wcout << std::endl;
+    std::wcout << L"By default, both access and modification times are updated." << std::endl;
+}
 
 std::optional<std::wstring> GetExecutablePath() {
     std::wstring buffer(MAX_PATH, L'\0');
@@ -379,6 +399,11 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
                 continue;
             }
 
+            if (arg == L"--help") {
+                options.showHelp = true;
+                continue;
+            }
+
             if (arg.size() >= 2 && arg[1] == L'-') {
                 std::wcerr << L"wtouch: unknown option '" << arg << L"'" << std::endl;
                 return std::nullopt;
@@ -401,6 +426,9 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
                         break;
                     case L'P':
                         options.showPath = true;
+                        break;
+                    case L'h':
+                        options.showHelp = true;
                         break;
                     case L'd':
                     case L't':
@@ -454,7 +482,7 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
         }
     }
 
-    if (options.paths.empty() && !options.showVersion && !options.showPath) {
+    if (options.paths.empty() && !options.showVersion && !options.showPath && !options.showHelp) {
         std::wcerr << L"wtouch: missing file operand" << std::endl;
         return std::nullopt;
     }
@@ -468,12 +496,22 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
 }
 
 int wmain(int argc, wchar_t *argv[]) {
+    if (argc <= 1) {
+        PrintUsage();
+        return 0;
+    }
+
     auto parsed = ParseArguments(argc, argv);
     if (!parsed) {
         return 1;
     }
 
     Options options = std::move(*parsed);
+
+    if (options.showHelp) {
+        PrintUsage();
+        return 0;
+    }
 
     bool infoOk = true;
     if (options.showVersion) {
