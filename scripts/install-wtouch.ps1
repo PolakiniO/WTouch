@@ -27,10 +27,19 @@ function Resolve-BinaryPath {
     $scriptRoot = Split-Path -Parent $PSCommandPath
     switch ($Variant) {
         'cpp' {
-            $candidate = Join-Path -Path $scriptRoot -ChildPath '..\build\Release\wtouch.exe'
-            if (Test-Path -LiteralPath $candidate) {
-                return (Resolve-Path -LiteralPath $candidate).ProviderPath
+            $candidates = @(
+                '..\build\Release\wtouch.exe',
+                '..\build\windows-release\Release\wtouch.exe',
+                '..\build\ninja-release\wtouch.exe',
+                '..\build\ninja-release\wtouch'
+            ) | ForEach-Object { Join-Path -Path $scriptRoot -ChildPath $_ }
+
+            foreach ($candidate in $candidates) {
+                if (Test-Path -LiteralPath $candidate) {
+                    return (Resolve-Path -LiteralPath $candidate).ProviderPath
+                }
             }
+
             throw "Unable to locate the native C++ binary. Provide -BinaryPath explicitly."
         }
         'c' {
@@ -62,14 +71,22 @@ if (-not $SkipCopy) {
         New-Item -ItemType Directory -Path $Destination -Force | Out-Null
     }
 
-    $targetName = if ($Variant -eq 'cpp') { 'wtouch-cpp.exe' } else { 'wtouch-c.exe' }
-    $destinationPath = Join-Path -Path $Destination -ChildPath $targetName
+    $primaryName = 'wtouch.exe'
+    $variantName = if ($Variant -eq 'cpp') { 'wtouch-cpp.exe' } else { 'wtouch-c.exe' }
+
+    $primaryDestination = Join-Path -Path $Destination -ChildPath $primaryName
+    $variantDestination = Join-Path -Path $Destination -ChildPath $variantName
 
     try {
-        Copy-Item -LiteralPath $resolvedBinary -Destination $destinationPath -Force:$Force.IsPresent
-        Write-Host "Copied '$resolvedBinary' to '$destinationPath'."
+        Copy-Item -LiteralPath $resolvedBinary -Destination $primaryDestination -Force:$Force.IsPresent
+        Write-Host "Copied '$resolvedBinary' to '$primaryDestination'."
+
+        if (-not [StringComparer]::OrdinalIgnoreCase.Equals($primaryDestination, $variantDestination)) {
+            Copy-Item -LiteralPath $primaryDestination -Destination $variantDestination -Force:$Force.IsPresent
+            Write-Host "Created variant-specific copy at '$variantDestination'."
+        }
     } catch {
-        Write-Error "Failed to copy '$resolvedBinary' to '$destinationPath': $_"
+        Write-Error "Failed to copy '$resolvedBinary' to the destination: $_"
         exit 1
     }
 } else {
