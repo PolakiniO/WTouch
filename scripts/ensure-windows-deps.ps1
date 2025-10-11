@@ -34,6 +34,43 @@ function Test-CommandExists {
     }
 }
 
+function Get-WingetLinksDirectory {
+    $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA')
+    if ([string]::IsNullOrWhiteSpace($localAppData)) {
+        return $null
+    }
+
+    return Join-Path $localAppData 'Microsoft\WinGet\Links'
+}
+
+function Ensure-PathContains {
+    param(
+        [Parameter(Mandatory)][string]$Directory
+    )
+
+    $pathEntries = $env:PATH -split ';'
+    if ($pathEntries -notcontains $Directory) {
+        $env:PATH = if ([string]::IsNullOrEmpty($env:PATH)) { $Directory } else { "$env:PATH;$Directory" }
+    }
+}
+
+function Test-NinjaAvailable {
+    if (Test-CommandExists -Name 'ninja') {
+        return $true
+    }
+
+    $wingetLinksDirectory = Get-WingetLinksDirectory
+    if ($wingetLinksDirectory) {
+        $ninjaShimPath = Join-Path $wingetLinksDirectory 'ninja.exe'
+        if (Test-Path -Path $ninjaShimPath) {
+            Ensure-PathContains -Directory $wingetLinksDirectory
+            return $true
+        }
+    }
+
+    return $false
+}
+
 function Get-VsWherePath {
     $candidates = @()
 
@@ -188,12 +225,12 @@ else {
 }
 
 if (-not $SkipNinja) {
-    if (Test-CommandExists -Name 'ninja') {
+    if (Test-NinjaAvailable) {
         Write-Info 'Ninja is already available in PATH.'
     }
     else {
         Install-WithWinget -Id 'Ninja-build.Ninja' -DisplayName 'Ninja build tool'
-        if (-not (Test-CommandExists -Name 'ninja')) {
+        if (-not (Test-NinjaAvailable)) {
             throw 'Ninja installation did not complete successfully. Please rerun the script or install Ninja manually.'
         }
     }
