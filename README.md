@@ -23,14 +23,27 @@
 
 1. Install the [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) (or a full Visual Studio installation) and [CMake](https://cmake.org/download/).
 2. Open a Developer PowerShell prompt and clone this repository.
-3. Configure and build:
+3. Configure and build. The repository ships a CMake preset that selects the
+   Visual Studio generator and x64 toolchain automatically, so the only thing
+   you need to do is:
 
    ```powershell
-   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --preset windows-release
+   cmake --build --preset windows-release
+   ```
+
+   If you prefer to invoke CMake manually, make sure to specify an MSVC-based
+   generator explicitly so that CMake does not fall back to `NMake Makefiles`
+   (which requires `nmake.exe` to be installed separately):
+
+   ```powershell
+   cmake -S . -B build -G "Visual Studio 17 2022" -A x64
    cmake --build build --config Release
    ```
 
-The resulting executable will be written to `build/Release/wtouch.exe`.
+The resulting executable will be written to
+`build/Release/wtouch.exe` (or `build/windows-release/Release/wtouch.exe` when
+using the preset).
 
 ## Installation
 
