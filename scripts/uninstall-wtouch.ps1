@@ -52,7 +52,8 @@ function Remove-DirectoryIfEmpty {
     param([string]$DirectoryPath)
 
     if (-not (Test-Path -LiteralPath $DirectoryPath)) {
-        return
+        Write-Verbose "Directory '$DirectoryPath' does not exist."
+        return $true
     }
 
     try {
@@ -66,12 +67,15 @@ function Remove-DirectoryIfEmpty {
         try {
             Remove-Item -LiteralPath $DirectoryPath -Force
             Write-Host "Removed empty directory '$DirectoryPath'."
+            return $true
         } catch {
             Write-Warning "Failed to remove directory '$DirectoryPath': $_"
+            return $false
         }
-    } else {
-        Write-Verbose "Directory '$DirectoryPath' is not empty; leaving it in place."
     }
+
+    Write-Verbose "Directory '$DirectoryPath' is not empty; leaving it in place."
+    return $false
 }
 
 function Remove-FromUserPath {
@@ -135,7 +139,11 @@ $binaryName = Get-BinaryName -Variant $Variant
 $binaryPath = Join-Path -Path $Destination -ChildPath $binaryName
 
 Remove-FileIfPresent -PathToRemove $binaryPath
-Remove-DirectoryIfEmpty -DirectoryPath $Destination
-Remove-FromUserPath -PathToRemove $Destination
+$directoryRemovedOrMissing = Remove-DirectoryIfEmpty -DirectoryPath $Destination
+if ($directoryRemovedOrMissing) {
+    Remove-FromUserPath -PathToRemove $Destination
+} else {
+    Write-Verbose "Skipping PATH cleanup because '$Destination' still contains files."
+}
 
 Write-Host 'uninstall-wtouch.ps1 completed successfully.'
