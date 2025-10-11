@@ -14,6 +14,58 @@ param(
     [switch]$SkipPathUpdate
 )
 
+function Get-NormalizedPath {
+    param([string]$PathSegment)
+
+    if (-not $PathSegment) {
+        return $null
+    }
+
+    try {
+        return [System.IO.Path]::GetFullPath($PathSegment)
+    } catch {
+        return $PathSegment.TrimEnd('\\')
+    }
+}
+
+function Test-IsAdministrator {
+    try {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        if (-not $identity) {
+            return $false
+        }
+        $principal = [Security.Principal.WindowsPrincipal]$identity
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        Write-Verbose "Unable to determine elevation state: $_"
+        return $false
+    }
+}
+
+function Assert-ElevationIfRequired {
+    param([string]$DestinationPath)
+
+    if (-not $DestinationPath) {
+        return
+    }
+
+    $normalizedDestination = Get-NormalizedPath -PathSegment $DestinationPath
+    $programFiles = Get-NormalizedPath -PathSegment $env:ProgramFiles
+    $programFilesX86 = Get-NormalizedPath -PathSegment ${env:ProgramFiles(x86)}
+
+    $requiresElevation = $false
+    if ($programFiles -and $normalizedDestination.StartsWith($programFiles, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $requiresElevation = $true
+    } elseif ($programFilesX86 -and $normalizedDestination.StartsWith($programFilesX86, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $requiresElevation = $true
+    }
+
+    if ($requiresElevation -and -not (Test-IsAdministrator)) {
+        Write-Error "Destination '$DestinationPath' resides under '%ProgramFiles%' and requires an elevated PowerShell session. Rerun this script as Administrator or provide -Destination pointing to a user-writable directory."
+        exit 1
+    }
+}
+
 function Resolve-BinaryPath {
     param(
         [string]$Variant,
@@ -58,17 +110,15 @@ function Resolve-BinaryPath {
     }
 }
 
-if (-not $SkipCopy) {
+Assert-ElevationIfRequired -DestinationPath $Destination
+
+$shouldCopy = -not $SkipCopy
+if ($shouldCopy) {
     try {
         $resolvedBinary = Resolve-BinaryPath -Variant $Variant -BinaryPath $BinaryPath
     } catch {
         Write-Error $_
         exit 1
-    }
-
-    if (-not (Test-Path -LiteralPath $Destination)) {
-        Write-Verbose "Creating destination directory '$Destination'."
-        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
     }
 
     $primaryName = 'wtouch.exe'
@@ -77,17 +127,40 @@ if (-not $SkipCopy) {
     $primaryDestination = Join-Path -Path $Destination -ChildPath $primaryName
     $variantDestination = Join-Path -Path $Destination -ChildPath $variantName
 
-    try {
-        Copy-Item -LiteralPath $resolvedBinary -Destination $primaryDestination -Force:$Force.IsPresent
-        Write-Host "Copied '$resolvedBinary' to '$primaryDestination'."
+    $primaryExists = Test-Path -LiteralPath $primaryDestination
+    $variantExists = $true
+    if (-not [StringComparer]::OrdinalIgnoreCase.Equals($primaryDestination, $variantDestination)) {
+        $variantExists = Test-Path -LiteralPath $variantDestination
+    }
 
-        if (-not [StringComparer]::OrdinalIgnoreCase.Equals($primaryDestination, $variantDestination)) {
-            Copy-Item -LiteralPath $primaryDestination -Destination $variantDestination -Force:$Force.IsPresent
-            Write-Host "Created variant-specific copy at '$variantDestination'."
+    if ($primaryExists -and $variantExists -and -not $Force.IsPresent) {
+        Write-Host "Detected existing installation at '$Destination'. Use -Force to overwrite or -SkipCopy to refresh PATH entries only."
+        $shouldCopy = $false
+    }
+
+    if ($shouldCopy -and -not (Test-Path -LiteralPath $Destination)) {
+        Write-Verbose "Creating destination directory '$Destination'."
+        try {
+            New-Item -ItemType Directory -Path $Destination -Force -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Error "Failed to create destination directory '$Destination': $_"
+            exit 1
         }
-    } catch {
-        Write-Error "Failed to copy '$resolvedBinary' to the destination: $_"
-        exit 1
+    }
+
+    if ($shouldCopy) {
+        try {
+            Copy-Item -LiteralPath $resolvedBinary -Destination $primaryDestination -Force:$Force.IsPresent -ErrorAction Stop
+            Write-Host "Copied '$resolvedBinary' to '$primaryDestination'."
+
+            if (-not [StringComparer]::OrdinalIgnoreCase.Equals($primaryDestination, $variantDestination)) {
+                Copy-Item -LiteralPath $primaryDestination -Destination $variantDestination -Force:$Force.IsPresent -ErrorAction Stop
+                Write-Host "Created variant-specific copy at '$variantDestination'."
+            }
+        } catch {
+            Write-Error "Failed to copy '$resolvedBinary' to the destination: $_"
+            exit 1
+        }
     }
 } else {
     Write-Verbose "Skipping binary copy step because -SkipCopy was provided."

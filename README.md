@@ -162,6 +162,8 @@ compiler environment initialised:
 .\scripts\install-wtouch.ps1 -Destination "C:\Tools\wtouch"
 ```
 
+> **Important**: The default destination is `%ProgramFiles%\wtouch`, which is protected by UAC. Run the script from an elevated PowerShell session (for example, **Developer PowerShell for VS** launched *As Administrator*) or supply `-Destination` pointing to a user-writable directory. If the binaries are already present, rerunning the script without `-Force` skips the copy step while still refreshing the user `PATH`.
+
 When invoked without `-SkipPathUpdate`, the script ensures the destination is
 present on the user `PATH`, which is ideal for PowerShell- and VS Code-based
 workflows.
@@ -176,6 +178,8 @@ removes the folder from your user `PATH` when present:
 .\scripts\uninstall-wtouch.ps1                  # removes the native build
 .\scripts\uninstall-wtouch.ps1 -Variant c       # removes the portable C build
 ```
+
+Removing the default `%ProgramFiles%\wtouch` installation also requires an elevated PowerShell session. Provide `-Destination` when you installed the binary to a different directory.
 
 The uninstall script only deletes empty directories, so if you placed other
 files in the installation folder they will be preserved.

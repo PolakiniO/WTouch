@@ -6,6 +6,20 @@ param(
     [string]$Destination = (Join-Path -Path $env:ProgramFiles -ChildPath 'wtouch')
 )
 
+function Test-IsAdministrator {
+    try {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        if (-not $identity) {
+            return $false
+        }
+        $principal = [Security.Principal.WindowsPrincipal]$identity
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        Write-Verbose "Unable to determine elevation state: $_"
+        return $false
+    }
+}
+
 function Get-BinaryNames {
     param([string]$Variant)
 
@@ -33,6 +47,30 @@ function Normalize-PathSegment {
     }
 }
 
+function Assert-ElevationIfRequired {
+    param([string]$DestinationPath)
+
+    if (-not $DestinationPath) {
+        return
+    }
+
+    $normalizedDestination = Normalize-PathSegment -PathSegment $DestinationPath
+    $programFiles = Normalize-PathSegment -PathSegment $env:ProgramFiles
+    $programFilesX86 = Normalize-PathSegment -PathSegment ${env:ProgramFiles(x86)}
+
+    $requiresElevation = $false
+    if ($programFiles -and $normalizedDestination.StartsWith($programFiles, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $requiresElevation = $true
+    } elseif ($programFilesX86 -and $normalizedDestination.StartsWith($programFilesX86, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $requiresElevation = $true
+    }
+
+    if ($requiresElevation -and -not (Test-IsAdministrator)) {
+        Write-Error "Destination '$DestinationPath' resides under '%ProgramFiles%' and requires an elevated PowerShell session. Rerun this script as Administrator or provide -Destination pointing to a user-writable directory."
+        exit 1
+    }
+}
+
 function Remove-FileIfPresent {
     param([string]$PathToRemove)
 
@@ -42,7 +80,7 @@ function Remove-FileIfPresent {
 
     if (Test-Path -LiteralPath $PathToRemove) {
         try {
-            Remove-Item -LiteralPath $PathToRemove -Force
+            Remove-Item -LiteralPath $PathToRemove -Force -ErrorAction Stop
             Write-Host "Removed '$PathToRemove'."
         } catch {
             Write-Error "Failed to remove '$PathToRemove': $_"
@@ -70,7 +108,7 @@ function Remove-DirectoryIfEmpty {
 
     if ($remaining.Count -eq 0) {
         try {
-            Remove-Item -LiteralPath $DirectoryPath -Force
+            Remove-Item -LiteralPath $DirectoryPath -Force -ErrorAction Stop
             Write-Host "Removed empty directory '$DirectoryPath'."
             return $true
         } catch {
@@ -141,6 +179,8 @@ function Remove-FromUserPath {
 }
 
 $binaryNames = Get-BinaryNames -Variant $Variant
+
+Assert-ElevationIfRequired -DestinationPath $Destination
 
 foreach ($name in $binaryNames) {
     $binaryPath = Join-Path -Path $Destination -ChildPath $name
