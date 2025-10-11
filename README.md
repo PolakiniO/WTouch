@@ -21,24 +21,35 @@
 
 ## Building from source
 
-1. Install the [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) (or a full Visual Studio installation) and [CMake](https://cmake.org/download/).
-2. Open a Developer PowerShell prompt and clone this repository.
-3. Configure and build. The repository ships a CMake preset that selects the
-   Visual Studio generator and x64 toolchain automatically, so the only thing
-   you need to do is:
+1. Install your preferred build tools:
+   * **Windows (Visual Studio Code workflow)** – install the latest [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with the “Desktop development with C++” workload, [CMake](https://cmake.org/download/), and [Ninja](https://ninja-build.org/). Inside Visual Studio Code, add the official [CMake Tools extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools). Launch **Developer PowerShell for VS** (installed alongside the build tools) before opening VS Code so that the MSVC environment is available to both PowerShell and the editor.
+   * **Windows (command-line only)** – install the Visual Studio Build Tools (or a full Visual Studio installation) and CMake. Run the commands shown below from **Developer PowerShell for VS** so that `cl.exe` is available to CMake.
+   * **Linux/macOS** – install a recent C++17 compiler, CMake, and Ninja.
+2. Open a terminal or Developer PowerShell and clone this repository.
+3. Configure and build using the bundled CMake presets. They automatically pick
+   the right generator for your platform and also work seamlessly inside
+   Visual Studio Code via the CMake Tools extension:
 
    ```powershell
+   # Windows
    cmake --preset windows-release
    cmake --build --preset windows-release
+
+   # Linux/macOS
+   cmake --preset ninja-release
+   cmake --build --preset ninja-release
    ```
 
-   If you prefer to invoke CMake manually, make sure to specify an MSVC-based
-   generator explicitly so that CMake does not fall back to `NMake Makefiles`
-   (which requires `nmake.exe` to be installed separately):
+   If you prefer to invoke CMake manually, make sure to specify a generator
+   that matches your toolchain, for example:
 
    ```powershell
    cmake -S . -B build -G "Visual Studio 17 2022" -A x64
    cmake --build build --config Release
+
+   # or use Ninja (single-config, works on Windows, Linux, and macOS)
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
    ```
 
 The resulting executable will be written to
@@ -52,7 +63,10 @@ using the preset).
 Run the standard install target to copy the binary to `CMAKE_INSTALL_PREFIX`
 (defaults to `C:\Program Files\wtouch`). On Windows, the installer also appends
 the chosen install directory to your user `PATH` automatically unless you opt
-out during configuration:
+out during configuration. When using Visual Studio Code, pick the `windows-release`
+configure preset from the CMake Tools status bar, build it, and then run the
+**CMake: Install** command from the palette. From a standalone terminal the
+equivalent is:
 
 ```powershell
 cmake --install build --config Release
@@ -74,6 +88,26 @@ Invoke-WebRequest -Uri "https://github.com/your-org/wtouch/releases/latest/downl
 ```
 
 After installation, add `$destination` to your `PATH` if it is not already present.
+
+### Installing from a PowerShell prompt (any build)
+
+The helper script works with both the native C++ binary and the portable C
+implementation. Run it from Developer PowerShell or another prompt with the
+compiler environment initialised:
+
+```powershell
+.\scripts\install-wtouch.ps1                 # installs the native build
+.\scripts\install-wtouch.ps1 -Variant c      # installs the portable C build
+
+# Common flags
+.\scripts\install-wtouch.ps1 -SkipCopy         # only update PATH
+.\scripts\install-wtouch.ps1 -SkipPathUpdate   # only copy binaries
+.\scripts\install-wtouch.ps1 -Destination "C:\Tools\wtouch"
+```
+
+When invoked without `-SkipPathUpdate`, the script ensures the destination is
+present on the user `PATH`, which is ideal for PowerShell- and VS Code-based
+workflows.
 
 ### Available implementations
 
