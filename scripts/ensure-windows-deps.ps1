@@ -73,6 +73,20 @@ function Test-VisualStudioBuildTools {
     return [string]::IsNullOrWhiteSpace($installationPath) -eq $false
 }
 
+function Get-VisualStudioBuildToolsInstance {
+    $vsWhere = Get-VsWherePath
+    if (-not $vsWhere) {
+        return $null
+    }
+
+    $installationPath = & $vsWhere -latest -products Microsoft.VisualStudio.Product.BuildTools -property installationPath 2>$null
+    if ([string]::IsNullOrWhiteSpace($installationPath)) {
+        return $null
+    }
+
+    return $installationPath.Trim()
+}
+
 function Ensure-WingetAvailable {
     if (Test-CommandExists -Name 'winget') {
         return
@@ -120,10 +134,33 @@ if (-not $SkipVisualStudio) {
         Write-Info 'Visual Studio Build Tools with the C++ workload are already installed.'
     }
     else {
-        Install-WithWinget -Id 'Microsoft.VisualStudio.2022.BuildTools' -Override '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart' -DisplayName 'Visual Studio Build Tools 2022 (Desktop development with C++)'
+        $existingInstancePath = Get-VisualStudioBuildToolsInstance
+        $overrideBase = '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart'
+        $override = if ([string]::IsNullOrWhiteSpace($existingInstancePath)) {
+            $overrideBase
+        }
+        else {
+            "--modify --installPath `"$existingInstancePath`" $overrideBase"
+        }
+
+        if ($existingInstancePath) {
+            Write-Info "Modifying existing Visual Studio Build Tools instance at $existingInstancePath to add required components."
+        }
+
+        Install-WithWinget -Id 'Microsoft.VisualStudio.2022.BuildTools' -Override $override -DisplayName 'Visual Studio Build Tools 2022 (Desktop development with C++)'
+
         if (-not (Test-VisualStudioBuildTools)) {
             Write-WarningMessage 'Required C++ components were not detected after the initial install attempt. Retrying with winget --force...'
-            Install-WithWinget -Id 'Microsoft.VisualStudio.2022.BuildTools' -Override '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart' -DisplayName 'Visual Studio Build Tools 2022 (Desktop development with C++)' -Force
+
+            $existingInstancePath = Get-VisualStudioBuildToolsInstance
+            $override = if ([string]::IsNullOrWhiteSpace($existingInstancePath)) {
+                $overrideBase
+            }
+            else {
+                "--modify --installPath `"$existingInstancePath`" $overrideBase"
+            }
+
+            Install-WithWinget -Id 'Microsoft.VisualStudio.2022.BuildTools' -Override $override -DisplayName 'Visual Studio Build Tools 2022 (Desktop development with C++)' -Force
         }
 
         if (-not (Test-VisualStudioBuildTools)) {
