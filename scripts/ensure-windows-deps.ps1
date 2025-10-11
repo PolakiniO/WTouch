@@ -67,13 +67,17 @@ function Install-WithWinget {
         [Parameter(Mandatory)]
         [string]$Id,
         [string]$Override,
-        [string]$DisplayName
+        [string]$DisplayName,
+        [switch]$Force
     )
 
     Ensure-WingetAvailable
     Ensure-Admin
 
     $arguments = @('install', '--id', $Id, '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements')
+    if ($Force) {
+        $arguments += '--force'
+    }
     if ($Override) {
         $arguments += @('--override', $Override)
     }
@@ -88,6 +92,11 @@ if (-not $SkipVisualStudio) {
     }
     else {
         Install-WithWinget -Id 'Microsoft.VisualStudio.2022.BuildTools' -Override '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart' -DisplayName 'Visual Studio Build Tools 2022 (Desktop development with C++)'
+        if (-not (Test-VisualStudioBuildTools)) {
+            Write-WarningMessage 'Required C++ components were not detected after the initial install attempt. Retrying with winget --force...'
+            Install-WithWinget -Id 'Microsoft.VisualStudio.2022.BuildTools' -Override '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait --norestart' -DisplayName 'Visual Studio Build Tools 2022 (Desktop development with C++)' -Force
+        }
+
         if (-not (Test-VisualStudioBuildTools)) {
             throw 'Visual Studio Build Tools installation did not complete successfully. Please rerun the script or install the tools manually.'
         }
