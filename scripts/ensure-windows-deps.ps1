@@ -34,13 +34,20 @@ function Test-CommandExists {
     }
 }
 
-function Get-WingetLinksDirectory {
+function Get-WingetLinksDirectories {
+    $directories = @()
+
     $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA')
-    if ([string]::IsNullOrWhiteSpace($localAppData)) {
-        return $null
+    if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+        $directories += (Join-Path $localAppData 'Microsoft\WinGet\Links')
     }
 
-    return Join-Path $localAppData 'Microsoft\WinGet\Links'
+    $programData = [Environment]::GetEnvironmentVariable('ProgramData')
+    if (-not [string]::IsNullOrWhiteSpace($programData)) {
+        $directories += (Join-Path $programData 'Microsoft\WinGet\Links')
+    }
+
+    return $directories
 }
 
 function Ensure-PathContains {
@@ -59,8 +66,8 @@ function Test-NinjaAvailable {
         return $true
     }
 
-    $wingetLinksDirectory = Get-WingetLinksDirectory
-    if ($wingetLinksDirectory) {
+    $wingetLinkDirectories = Get-WingetLinksDirectories | Where-Object { $_ -and (Test-Path -Path $_) }
+    foreach ($wingetLinksDirectory in $wingetLinkDirectories) {
         $ninjaShimPath = Join-Path $wingetLinksDirectory 'ninja.exe'
         if (Test-Path -Path $ninjaShimPath) {
             Ensure-PathContains -Directory $wingetLinksDirectory
