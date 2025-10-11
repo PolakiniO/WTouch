@@ -55,17 +55,31 @@ function Get-CommonNinjaInstallDirectories {
 
     $programFiles = [Environment]::GetEnvironmentVariable('ProgramFiles')
     if (-not [string]::IsNullOrWhiteSpace($programFiles)) {
-        $directories += (Join-Path $programFiles 'Ninja')
+        $directories += @(
+            (Join-Path $programFiles 'Ninja'),
+            (Join-Path $programFiles 'Ninja\bin'),
+            (Join-Path $programFiles 'Kitware\CMake\bin'),
+            (Join-Path $programFiles 'Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja'),
+            (Join-Path $programFiles 'Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja'),
+            (Join-Path $programFiles 'Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja')
+        )
     }
 
     $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
     if (-not [string]::IsNullOrWhiteSpace($programFilesX86)) {
-        $directories += (Join-Path $programFilesX86 'Ninja')
+        $directories += @(
+            (Join-Path $programFilesX86 'Ninja'),
+            (Join-Path $programFilesX86 'Ninja\bin'),
+            (Join-Path $programFilesX86 'Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja')
+        )
     }
 
     $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA')
     if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
-        $directories += (Join-Path $localAppData 'Programs\Ninja')
+        $directories += @(
+            (Join-Path $localAppData 'Programs\Ninja'),
+            (Join-Path $localAppData 'Programs\Ninja\bin')
+        )
     }
 
     return $directories
@@ -100,7 +114,7 @@ function Test-NinjaAvailable {
     foreach ($installDirectory in $commonInstallDirectories) {
         $ninjaPath = Join-Path $installDirectory 'ninja.exe'
         if (Test-Path -Path $ninjaPath) {
-            Ensure-PathContains -Directory $installDirectory
+            Ensure-PathContains -Directory (Split-Path -Path $ninjaPath -Parent)
             return $true
         }
     }
