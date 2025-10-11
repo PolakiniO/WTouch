@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+VERSION = "1.0.0"
+
 import argparse
 import datetime as _dt
 import os
@@ -113,9 +115,16 @@ def apply_times(
     os.utime(path, (atime, mtime))
 
 
+def resolve_executable_path() -> str:
+    candidate = sys.argv[0] if sys.argv else __file__
+    if not candidate:
+        return ""
+    return os.path.realpath(os.path.abspath(candidate))
+
+
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="wtouch.py")
-    parser.add_argument("paths", nargs="+", help="Files or directories to update")
+    parser.add_argument("paths", nargs="*", help="Files or directories to update")
     parser.add_argument("-a", dest="touch_access", action="store_true", help="Change the access time only")
     parser.add_argument("-m", dest="touch_modify", action="store_true", help="Change the modification time only")
     parser.add_argument(
@@ -140,11 +149,46 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         dest="reference",
         help="Copy timestamps from another path",
     )
+    parser.add_argument(
+        "-V",
+        "--version",
+        dest="show_version",
+        action="store_true",
+        help="Show version information and exit",
+    )
+    parser.add_argument(
+        "-P",
+        "--path",
+        dest="show_path",
+        action="store_true",
+        help="Show the resolved script path and exit",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = parse_args(argv)
+
+    if args.show_version:
+        print(f"wtouch version {VERSION}")
+    path_ok = True
+    if args.show_path:
+        resolved = resolve_executable_path()
+        if resolved:
+            print(f"wtouch path {resolved}")
+        else:
+            print("wtouch.py: failed to determine executable path", file=sys.stderr)
+            path_ok = False
+
+    if (args.show_version or args.show_path) and not args.paths:
+        return 0 if path_ok else 1
+
+    if not path_ok:
+        return 1
+
+    if not args.paths:
+        print("wtouch.py: missing file operand", file=sys.stderr)
+        return 1
 
     explicit_sources = sum(
         1 for candidate in (args.reference, args.date_string, args.timestamp_string) if candidate

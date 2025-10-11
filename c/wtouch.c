@@ -1,5 +1,10 @@
 #if !defined(_WIN32)
-#    define _POSIX_C_SOURCE 200809L
+#    if !defined(_POSIX_C_SOURCE)
+#        define _POSIX_C_SOURCE 200809L
+#    endif
+#    if !defined(_XOPEN_SOURCE)
+#        define _XOPEN_SOURCE 700
+#    endif
 #endif
 
 #include <errno.h>
@@ -9,10 +14,12 @@
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <limits.h>
 
 #if defined(_WIN32)
 #    include <io.h>
 #    include <sys/utime.h>
+#    include <windows.h>
 #    define STAT_STRUCT struct _stat64
 #    define STAT_FUNC _stat64
 #    define UTIME_STRUCT struct __utimbuf64
@@ -57,15 +64,20 @@ static time_t stat_mtime(const STAT_STRUCT *info) {
 #endif
 }
 
+#define WTOUCH_VERSION "1.0.0"
+
 struct options {
     bool touch_access;
     bool touch_modify;
     bool no_create;
+    bool show_version;
+    bool show_path;
     const char *date_string;
     const char *timestamp_string;
     const char *reference_path;
     int path_count;
     const char **paths;
+    const char *program_name;
 };
 
 static void print_usage(FILE *out) {
@@ -77,11 +89,14 @@ static void print_usage(FILE *out) {
             "  -d STRING            Parse STRING as an explicit timestamp (YYYY-MM-DD[ HH:MM[:SS]])\n"
             "  -t STAMP             Parse STAMP in [[CC]YY]MMDDhhmm[.ss] format\n"
             "  -r FILE              Use FILE's access/modification times\n"
-            "      --               Treat all following arguments as literal paths\n");
+            "      --               Treat all following arguments as literal paths\n"
+            "  -V, --version        Show version information\n"
+            "  -P, --path           Show the resolved executable path\n");
 }
 
 static bool parse_args(int argc, char **argv, struct options *out) {
     memset(out, 0, sizeof(*out));
+    out->program_name = argc > 0 ? argv[0] : NULL;
 
     int i = 1;
     for (; i < argc; ++i) {
@@ -120,6 +135,10 @@ static bool parse_args(int argc, char **argv, struct options *out) {
         } else if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
             print_usage(stdout);
             exit(0);
+        } else if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
+            out->show_version = true;
+        } else if (strcmp(arg, "-P") == 0 || strcmp(arg, "--path") == 0) {
+            out->show_path = true;
         } else {
             fprintf(stderr, "wtouch: unrecognised option '%s'\n", arg);
             return false;
@@ -129,7 +148,7 @@ static bool parse_args(int argc, char **argv, struct options *out) {
     out->paths = (const char **)(argv + i);
     out->path_count = argc - i;
 
-    if (out->path_count <= 0) {
+    if (out->path_count <= 0 && !out->show_version && !out->show_path) {
         fprintf(stderr, "wtouch: missing file operand\n");
         return false;
     }
@@ -306,10 +325,57 @@ static bool apply_times(const char *path, time_t atime, time_t mtime, bool touch
 #endif
 }
 
+static bool print_version(void) {
+    printf("wtouch version %s\n", WTOUCH_VERSION);
+    return true;
+}
+
+static bool print_executable_path(const char *program_name) {
+#if defined(_WIN32)
+    char buffer[MAX_PATH];
+    DWORD copied = GetModuleFileNameA(NULL, buffer, (DWORD)sizeof(buffer));
+    if (copied == 0 || copied >= sizeof(buffer)) {
+        fprintf(stderr, "wtouch: failed to determine executable path\n");
+        return false;
+    }
+    printf("wtouch path %s\n", buffer);
+    return true;
+#else
+    char resolved[PATH_MAX];
+    if (!program_name || program_name[0] == '\0') {
+        fprintf(stderr, "wtouch: failed to determine executable path\n");
+        return false;
+    }
+    char *result = realpath(program_name, resolved);
+    if (!result) {
+        fprintf(stderr, "wtouch: failed to determine executable path: %s\n", strerror(errno));
+        return false;
+    }
+    printf("wtouch path %s\n", resolved);
+    return true;
+#endif
+}
+
 int main(int argc, char **argv) {
     struct options opts;
     if (!parse_args(argc, argv, &opts)) {
         print_usage(stderr);
+        return 1;
+    }
+
+    bool info_ok = true;
+    if (opts.show_version) {
+        info_ok = print_version() && info_ok;
+    }
+    if (opts.show_path) {
+        info_ok = print_executable_path(opts.program_name) && info_ok;
+    }
+
+    if ((opts.show_version || opts.show_path) && opts.path_count == 0) {
+        return info_ok ? 0 : 1;
+    }
+
+    if (!info_ok) {
         return 1;
     }
 

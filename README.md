@@ -239,6 +239,18 @@ wtouch [OPTION]... FILE...
   -t STAMP             Parse STAMP in [[CC]YY]MMDDhhmm[.ss] format
   -r FILE              Use FILE's access/modification times
       --               Treat all following arguments as literal paths
+  -V, --version        Show version information
+  -P, --path           Show the resolved executable/script path
 ```
 
 If no `-a` or `-m` flag is specified, both access and modification times are updated to the current time by default.
+
+## Potential future flags
+
+Several quality-of-life flags are common across other `touch` variants and would be practical additions here:
+
+* `--dry-run` – Print the operations that would be performed without mutating the filesystem. This helps with verifying wildcard expansions and timestamp sources.
+* `--utc` – Force all explicit timestamps to be interpreted as UTC instead of local time, matching GNU `touch --time=UTC` behaviour and making scripted usage predictable across time zones.
+* `--no-dereference` – Update symlink metadata instead of the target where the host platform permits it. This mirrors the `-h` option on BSD systems and is useful for deployment scripts that manage symlinks.
+
+These candidates provide clearer parity with platform utilities while remaining feasible for each maintained implementation.
