@@ -10,6 +10,10 @@
 
 `wtouch` is a Windows-native recreation of the GNU `touch` utility. It creates files on demand and updates access or modification timestamps without altering file contents. The implementation uses Win32 APIs so it works seamlessly with Unicode paths, files, and directories.
 
+## Disclaimer
+
+This project was originally created using OpenAI's Codex model.
+
 ## Features
 
 * Create files when they do not yet exist (unless `--no-create` is provided).
