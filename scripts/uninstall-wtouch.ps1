@@ -6,12 +6,17 @@ param(
     [string]$Destination = (Join-Path -Path $env:ProgramFiles -ChildPath 'wtouch')
 )
 
-function Get-BinaryName {
+function Get-BinaryNames {
     param([string]$Variant)
+
+    $names = @('wtouch.exe')
+
     switch ($Variant) {
-        'cpp' { return 'wtouch-cpp.exe' }
-        'c'   { return 'wtouch-c.exe' }
+        'cpp' { $names += 'wtouch-cpp.exe' }
+        'c'   { $names += 'wtouch-c.exe' }
     }
+
+    return $names | Select-Object -Unique
 }
 
 function Normalize-PathSegment {
@@ -135,10 +140,12 @@ function Remove-FromUserPath {
     }
 }
 
-$binaryName = Get-BinaryName -Variant $Variant
-$binaryPath = Join-Path -Path $Destination -ChildPath $binaryName
+$binaryNames = Get-BinaryNames -Variant $Variant
 
-Remove-FileIfPresent -PathToRemove $binaryPath
+foreach ($name in $binaryNames) {
+    $binaryPath = Join-Path -Path $Destination -ChildPath $name
+    Remove-FileIfPresent -PathToRemove $binaryPath
+}
 $directoryRemovedOrMissing = Remove-DirectoryIfEmpty -DirectoryPath $Destination
 if ($directoryRemovedOrMissing) {
     Remove-FromUserPath -PathToRemove $Destination
