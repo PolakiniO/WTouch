@@ -34,9 +34,38 @@ function Test-CommandExists {
     }
 }
 
+function Get-VsWherePath {
+    $candidates = @()
+
+    $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+    if ($programFilesX86) {
+        $candidates += (Join-Path $programFilesX86 'Microsoft Visual Studio\Installer\vswhere.exe')
+    }
+
+    $programFiles = [Environment]::GetEnvironmentVariable('ProgramFiles')
+    if ($programFiles) {
+        $candidates += (Join-Path $programFiles 'Microsoft Visual Studio\Installer\vswhere.exe')
+    }
+
+    if (Test-CommandExists -Name 'vswhere') {
+        $command = Get-Command -Name 'vswhere' -ErrorAction SilentlyContinue
+        if ($command) {
+            $candidates += $command.Source
+        }
+    }
+
+    foreach ($candidate in $candidates | Where-Object { $_ }) {
+        if (Test-Path -Path $candidate) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
 function Test-VisualStudioBuildTools {
-    $vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\\Installer\\vswhere.exe'
-    if (-not (Test-Path -Path $vsWhere)) {
+    $vsWhere = Get-VsWherePath
+    if (-not $vsWhere) {
         return $false
     }
 
