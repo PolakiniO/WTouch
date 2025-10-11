@@ -50,6 +50,27 @@ function Get-WingetLinksDirectories {
     return $directories
 }
 
+function Get-CommonNinjaInstallDirectories {
+    $directories = @()
+
+    $programFiles = [Environment]::GetEnvironmentVariable('ProgramFiles')
+    if (-not [string]::IsNullOrWhiteSpace($programFiles)) {
+        $directories += (Join-Path $programFiles 'Ninja')
+    }
+
+    $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+    if (-not [string]::IsNullOrWhiteSpace($programFilesX86)) {
+        $directories += (Join-Path $programFilesX86 'Ninja')
+    }
+
+    $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA')
+    if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+        $directories += (Join-Path $localAppData 'Programs\Ninja')
+    }
+
+    return $directories
+}
+
 function Ensure-PathContains {
     param(
         [Parameter(Mandatory)][string]$Directory
@@ -71,6 +92,15 @@ function Test-NinjaAvailable {
         $ninjaShimPath = Join-Path $wingetLinksDirectory 'ninja.exe'
         if (Test-Path -Path $ninjaShimPath) {
             Ensure-PathContains -Directory $wingetLinksDirectory
+            return $true
+        }
+    }
+
+    $commonInstallDirectories = Get-CommonNinjaInstallDirectories | Where-Object { $_ -and (Test-Path -Path $_) }
+    foreach ($installDirectory in $commonInstallDirectories) {
+        $ninjaPath = Join-Path $installDirectory 'ninja.exe'
+        if (Test-Path -Path $ninjaPath) {
+            Ensure-PathContains -Directory $installDirectory
             return $true
         }
     }
