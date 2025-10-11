@@ -117,7 +117,7 @@ configure preset from the CMake Tools status bar, build it, and then run the
 equivalent is:
 
 ```powershell
-cmake --install build --config Release
+cmake --install build/windows-release --config Release
 ```
 
 To skip the automatic `PATH` update, configure the project with
