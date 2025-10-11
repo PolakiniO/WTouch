@@ -24,10 +24,29 @@ struct Options {
     bool touchAccess = false;
     bool touchModify = false;
     bool noCreate = false;
+    bool showVersion = false;
+    bool showPath = false;
     std::optional<FILETIME> explicitTime;
     std::optional<ParsedTime> referenceTimes;
     std::vector<std::wstring> paths;
 };
+
+constexpr const wchar_t *kVersionString = L"1.0.0";
+
+std::optional<std::wstring> GetExecutablePath() {
+    std::wstring buffer(MAX_PATH, L'\0');
+    while (true) {
+        DWORD copied = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        if (copied == 0) {
+            return std::nullopt;
+        }
+        if (copied < buffer.size() - 1) {
+            buffer.resize(copied);
+            return buffer;
+        }
+        buffer.resize(buffer.size() * 2, L'\0');
+    }
+}
 
 bool ParseIntRange(const std::wstring &text, size_t start, size_t length, int &value) {
     if (start + length > text.size()) {
@@ -350,6 +369,16 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
                 continue;
             }
 
+            if (arg == L"--version") {
+                options.showVersion = true;
+                continue;
+            }
+
+            if (arg == L"--path") {
+                options.showPath = true;
+                continue;
+            }
+
             if (arg.size() >= 2 && arg[1] == L'-') {
                 std::wcerr << L"wtouch: unknown option '" << arg << L"'" << std::endl;
                 return std::nullopt;
@@ -366,6 +395,12 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
                         break;
                     case L'c':
                         options.noCreate = true;
+                        break;
+                    case L'V':
+                        options.showVersion = true;
+                        break;
+                    case L'P':
+                        options.showPath = true;
                         break;
                     case L'd':
                     case L't':
@@ -419,12 +454,12 @@ std::optional<Options> ParseArguments(int argc, wchar_t *argv[]) {
         }
     }
 
-    if (options.paths.empty()) {
+    if (options.paths.empty() && !options.showVersion && !options.showPath) {
         std::wcerr << L"wtouch: missing file operand" << std::endl;
         return std::nullopt;
     }
 
-    if (!options.touchAccess && !options.touchModify) {
+    if (!options.paths.empty() && !options.touchAccess && !options.touchModify) {
         options.touchAccess = true;
         options.touchModify = true;
     }
@@ -439,6 +474,29 @@ int wmain(int argc, wchar_t *argv[]) {
     }
 
     Options options = std::move(*parsed);
+
+    bool infoOk = true;
+    if (options.showVersion) {
+        std::wcout << L"wtouch version " << kVersionString << std::endl;
+    }
+
+    if (options.showPath) {
+        auto executablePath = GetExecutablePath();
+        if (!executablePath) {
+            std::wcerr << L"wtouch: failed to determine executable path" << std::endl;
+            infoOk = false;
+        } else {
+            std::wcout << L"wtouch path " << *executablePath << std::endl;
+        }
+    }
+
+    if ((options.showVersion || options.showPath) && options.paths.empty()) {
+        return infoOk ? 0 : 1;
+    }
+
+    if (!infoOk) {
+        return 1;
+    }
 
     auto targets = ExpandTargets(options.paths);
     if (targets.empty()) {
