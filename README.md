@@ -29,6 +29,15 @@ This project was originally created using OpenAI's Codex model.
    * **Windows (Visual Studio Code workflow)** – install the latest [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with the “Desktop development with C++” workload, [CMake](https://cmake.org/download/), and [Ninja](https://ninja-build.org/). Inside Visual Studio Code, add the official [CMake Tools extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools). Launch **Developer PowerShell for VS** (installed alongside the build tools) before opening VS Code so that the MSVC environment is available to both PowerShell and the editor.
    * **Windows (command-line only)** – install the Visual Studio Build Tools (or a full Visual Studio installation) and CMake. Run the commands shown below from **Developer PowerShell for VS** so that `cl.exe` is available to CMake.
    * **Linux/macOS** – install a recent C++17 compiler, CMake, and Ninja.
+
+   On Windows you can let the repository install the prerequisites for you. Launch an elevated **Developer PowerShell for VS** or Windows Terminal session and run:
+
+   ```powershell
+   # Installs Visual Studio Build Tools (C++ workload), CMake, and Ninja when missing
+   .\scripts\ensure-windows-deps.ps1
+   ```
+
+   The script uses `winget` to install packages. If `winget` is not available, install it from the Microsoft Store first. You can skip individual checks with `-SkipVisualStudio`, `-SkipCMake`, or `-SkipNinja`.
 2. Open a terminal or Developer PowerShell and clone this repository.
 3. Configure and build using the bundled CMake presets. They automatically pick
    the right generator for your platform and also work seamlessly inside
@@ -56,9 +65,27 @@ This project was originally created using OpenAI's Codex model.
    cmake --build build
    ```
 
-The resulting executable will be written to
+   The resulting executable will be written to
 `build/Release/wtouch.exe` (or `build/windows-release/Release/wtouch.exe` when
 using the preset).
+
+### Troubleshooting CMake on Windows
+
+If `cmake --preset windows-release` reports that it "could not find any instance
+of Visual Studio," one of the following issues is usually the cause:
+
+* **Visual Studio Build Tools are not installed.** Install the latest Visual
+  Studio (or the standalone Build Tools) and include the **Desktop development
+  with C++** workload. The CMake preset targets the `Visual Studio 17 2022`
+  generator, so MSVC 2022 must be available on the machine.
+* **The Visual Studio environment is not initialised in the current shell.**
+  Launch **Developer PowerShell for VS** (installed with Visual Studio) and run
+  `cmake` from that prompt, or run `vcvarsall.bat x64` in a regular PowerShell
+  session before invoking CMake. This ensures `cl.exe` and the required
+  environment variables are visible to the generator detection logic.
+
+After installing the tools or initialising the environment, rerun the preset
+command.
 
 ## Installation
 
