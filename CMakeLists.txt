@@ -35,6 +35,7 @@ if (WIN32)
     if (WTOUCH_INSTALL_ADD_TO_PATH)
         set(_wtouch_install_helper "${CMAKE_CURRENT_LIST_DIR}/scripts/install-wtouch.ps1")
         file(TO_NATIVE_PATH "${_wtouch_install_helper}" INSTALLER_SCRIPT_NATIVE)
+        string(REPLACE "\\" "\\\\" INSTALLER_SCRIPT_NATIVE "${INSTALLER_SCRIPT_NATIVE}")
         file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cmake")
         configure_file(
             "${CMAKE_CURRENT_LIST_DIR}/cmake/add-to-path.cmake.in"
