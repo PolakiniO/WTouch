@@ -84,8 +84,15 @@ This project was originally created using OpenAI's Codex model.
    ```
 
    The resulting executable will be written to
-`build/Release/wtouch.exe` (or `build/windows-release/Release/wtouch.exe` when
-using the preset).
+   `build/Release/wtouch.exe`. When using the Windows preset the binary lives at
+   `build/windows-release/Release/wtouch.exe` until you run the install step, so
+   invoke it with that relative path or change into that directory first.
+
+   After building on Windows, run `cmake --install build/windows-release --config
+   Release` (or `.\scripts\install-wtouch.ps1`) to copy `wtouch.exe` to the
+   configured install location and refresh your `PATH`. See [Using CMake
+   install](#using-cmake-install) below for the full walkthrough of what the
+   install step does and how to customise it.
 
 ### Troubleshooting CMake on Windows
 
