@@ -18,7 +18,7 @@
 
 The short clip above demonstrates a typical session:
 
-<sub>The animation is embedded inline via a data URI so the documentation can ship without binary assets.</sub>
+<sub>The animation is embedded inline as a Base64 data URI so no binary asset needs to be committed. Run `scripts/embed-workflow-gif.py docs/wtouch-workflow.gif` to refresh the blob after exporting a new GIF.</sub>
 
 1. **Create or update timestamps** for one or more files with `wtouch file.txt`.
 2. **Adjust modification or access times** using the `-m` and `-a` switches.
