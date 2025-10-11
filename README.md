@@ -109,6 +109,20 @@ When invoked without `-SkipPathUpdate`, the script ensures the destination is
 present on the user `PATH`, which is ideal for PowerShell- and VS Code-based
 workflows.
 
+### Uninstalling
+
+To remove a previously installed binary, run the companion uninstall script.
+It deletes the selected implementation from the destination directory and
+removes the folder from your user `PATH` when present:
+
+```powershell
+.\scripts\uninstall-wtouch.ps1                  # removes the native build
+.\scripts\uninstall-wtouch.ps1 -Variant c       # removes the portable C build
+```
+
+The uninstall script only deletes empty directories, so if you placed other
+files in the installation folder they will be preserved.
+
 ### Available implementations
 
 `wtouch` now ships four standalone implementations that can live side by side.
