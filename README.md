@@ -14,8 +14,6 @@
 
 ![Demo](./assets/WTouch_Demo.gif)
 
-<sub>The animation above is stored at `assets/WTouch_Demo.gif`. Replace the file after exporting a new capture to refresh the clip.</sub>
-
 1. **Create or update timestamps** for one or more files with `wtouch file.txt`.
 2. **Adjust modification or access times** using the `-m` and `-a` switches.
 3. **Copy timestamps from a reference file** by adding `-r existing.txt`.
