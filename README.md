@@ -56,9 +56,27 @@ This project was originally created using OpenAI's Codex model.
    cmake --build build
    ```
 
-The resulting executable will be written to
+   The resulting executable will be written to
 `build/Release/wtouch.exe` (or `build/windows-release/Release/wtouch.exe` when
 using the preset).
+
+### Troubleshooting CMake on Windows
+
+If `cmake --preset windows-release` reports that it "could not find any instance
+of Visual Studio," one of the following issues is usually the cause:
+
+* **Visual Studio Build Tools are not installed.** Install the latest Visual
+  Studio (or the standalone Build Tools) and include the **Desktop development
+  with C++** workload. The CMake preset targets the `Visual Studio 17 2022`
+  generator, so MSVC 2022 must be available on the machine.
+* **The Visual Studio environment is not initialised in the current shell.**
+  Launch **Developer PowerShell for VS** (installed with Visual Studio) and run
+  `cmake` from that prompt, or run `vcvarsall.bat x64` in a regular PowerShell
+  session before invoking CMake. This ensures `cl.exe` and the required
+  environment variables are visible to the generator detection logic.
+
+After installing the tools or initialising the environment, rerun the preset
+command.
 
 ## Installation
 
