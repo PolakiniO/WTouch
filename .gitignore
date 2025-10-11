@@ -42,5 +42,6 @@ tests/tmp/
 *.log
 coverage/
 
-# Documentation assets (local only)
+# Local documentation assets
 docs/wtouch-workflow.gif
+
