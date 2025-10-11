@@ -99,9 +99,19 @@ function Add-ToUserPath {
     $current = [Environment]::GetEnvironmentVariable('Path', 'User')
     if (-not $current) {
         $current = ''
+        Write-Host 'Current user PATH is empty.'
+    } else {
+        Write-Host "Current user PATH raw value: '$current'"
     }
 
     $segments = @($current -split ';' | Where-Object { $_ -ne '' })
+    if ($segments.Count -gt 0) {
+        $segmentList = $segments | ForEach-Object { "  - $_" }
+        Write-Host "Parsed user PATH entries:`n$($segmentList -join "`n")"
+    } else {
+        Write-Host 'No non-empty user PATH entries found after parsing.'
+    }
+
     if ($segments -contains $PathToAdd) {
         Write-Host "Destination already present in the user PATH."
         return
@@ -111,14 +121,29 @@ function Add-ToUserPath {
     $newValue = ($segments -join ';')
     [Environment]::SetEnvironmentVariable('Path', $newValue, 'User')
 
+    Write-Host "Updated user PATH will contain $($segments.Count) entries."
+    Write-Host "New user PATH raw value: '$newValue'"
+
     $processPath = [Environment]::GetEnvironmentVariable('Path', 'Process')
     if (-not $processPath) {
         $processPath = ''
+        Write-Host 'Current process PATH is empty.'
+    } else {
+        Write-Host "Current process PATH raw value: '$processPath'"
     }
     $processSegments = @($processPath -split ';' | Where-Object { $_ -ne '' })
+    if ($processSegments.Count -gt 0) {
+        $processSegmentList = $processSegments | ForEach-Object { "  - $_" }
+        Write-Host "Parsed process PATH entries:`n$($processSegmentList -join "`n")"
+    } else {
+        Write-Host 'No non-empty process PATH entries found after parsing.'
+    }
     if ($processSegments -notcontains $PathToAdd) {
         $processSegments += $PathToAdd
         [Environment]::SetEnvironmentVariable('Path', ($processSegments -join ';'), 'Process')
+        Write-Host 'Appended destination to the process PATH for the current session.'
+    } else {
+        Write-Host 'Destination already present in the process PATH for the current session.'
     }
 
     Write-Host "Added '$PathToAdd' to the user PATH. Open a new shell to use it everywhere."
