@@ -43,8 +43,8 @@ This project was originally created using OpenAI's Codex model.
 ## Building from source
 
 1. Install your preferred build tools:
-   * **Windows (Visual Studio Code workflow)** – install the latest [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with the “Desktop development with C++” workload, [CMake](https://cmake.org/download/), and [Ninja](https://ninja-build.org/). Inside Visual Studio Code, add the official [CMake Tools extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools). Launch **Developer PowerShell for VS** (installed alongside the build tools) before opening VS Code so that the MSVC environment is available to both PowerShell and the editor.
-   * **Windows (command-line only)** – install the Visual Studio Build Tools (or a full Visual Studio installation) and CMake. Run the commands shown below from **Developer PowerShell for VS** so that `cl.exe` is available to CMake.
+   * **Windows (Developer PowerShell workflow)** – install the latest [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with the “Desktop development with C++” workload, [CMake](https://cmake.org/download/), and [Ninja](https://ninja-build.org/). Run the commands shown below from **Developer PowerShell for VS** so that `cl.exe` is available to CMake and Ninja.
+   * **Windows (Visual Studio Code integration)** – follow the Developer PowerShell setup above, then install the official [CMake Tools extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools). Launch **Developer PowerShell for VS** before opening VS Code so that the MSVC environment is available to both PowerShell and the editor.
    * **Linux/macOS** – install a recent C++17 compiler, CMake, and Ninja.
 
    On Windows you can let the repository install the prerequisites for you. Launch an elevated **Developer PowerShell for VS** or Windows Terminal session and run:
@@ -57,8 +57,9 @@ This project was originally created using OpenAI's Codex model.
    The script uses `winget` to install packages. If `winget` is not available, install it from the Microsoft Store first. You can skip individual checks with `-SkipVisualStudio`, `-SkipCMake`, or `-SkipNinja`.
 2. Open a terminal or Developer PowerShell and clone this repository.
 3. Configure and build using the bundled CMake presets. They automatically pick
-   the right generator for your platform and also work seamlessly inside
-   Visual Studio Code via the CMake Tools extension:
+   the right generator for your platform when run from Developer PowerShell.
+   The same presets are recognised by Visual Studio Code through the
+   CMake Tools extension if you prefer that workflow:
 
    ```powershell
    # Windows
@@ -111,14 +112,15 @@ command.
 Run the standard install target to copy the binary to `CMAKE_INSTALL_PREFIX`
 (defaults to `C:\Program Files\wtouch`). On Windows, the installer also appends
 the chosen install directory to your user `PATH` automatically unless you opt
-out during configuration. When using Visual Studio Code, pick the `windows-release`
-configure preset from the CMake Tools status bar, build it, and then run the
-**CMake: Install** command from the palette. From a standalone terminal the
-equivalent is:
+out during configuration. From an elevated Developer PowerShell prompt run:
 
 ```powershell
 cmake --install build/windows-release --config Release
 ```
+
+If you prefer to drive the build from Visual Studio Code, pick the
+`windows-release` configure preset from the CMake Tools status bar, build it,
+and then run the **CMake: Install** command from the palette.
 
 To skip the automatic `PATH` update, configure the project with
 `-DWTOUCH_INSTALL_ADD_TO_PATH=OFF` before running the install step.
