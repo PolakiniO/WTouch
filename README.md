@@ -294,11 +294,14 @@ wtouch [OPTION]... FILE...
   -t STAMP             Parse STAMP in [[CC]YY]MMDDhhmm[.ss] format
   -r FILE              Use FILE's access/modification times
       --               Treat all following arguments as literal paths
+  -h, --help           Show this usage information
   -V, --version        Show version information
   -P, --path           Show the resolved executable/script path
 ```
 
 If no `-a` or `-m` flag is specified, both access and modification times are updated to the current time by default.
+
+Invoking `wtouch` without any arguments now prints the same help text as `--help`, making it easier to discover available options.
 
 ## Potential future flags
 
