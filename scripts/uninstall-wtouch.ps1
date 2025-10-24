@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
     [ValidateSet('cpp', 'c')]
     [string]$Variant = 'cpp',
@@ -45,6 +45,26 @@ function Normalize-PathSegment {
     } catch {
         return $PathSegment.TrimEnd('\\')
     }
+}
+
+function Assert-PathIsSafeForUninstall {
+    param([Parameter(Mandatory = $true)][string]$CandidatePath)
+
+    $invalidChars = [System.IO.Path]::GetInvalidPathChars()
+    if ($CandidatePath.IndexOfAny($invalidChars) -ge 0) {
+        throw "Destination contains invalid path characters: '$CandidatePath'"
+    }
+
+    $normalized = Normalize-PathSegment -PathSegment $CandidatePath
+    if (-not $normalized) {
+        throw "Destination cannot be empty."
+    }
+
+    if (-not [System.IO.Path]::IsPathRooted($normalized)) {
+        throw "Destination must be an absolute path. Provided: '$CandidatePath'"
+    }
+
+    return $normalized.TrimEnd('\\')
 }
 
 function Assert-ElevationIfRequired {
@@ -180,17 +200,39 @@ function Remove-FromUserPath {
 
 $binaryNames = Get-BinaryNames -Variant $Variant
 
-Assert-ElevationIfRequired -DestinationPath $Destination
+try {
+    $validatedDestination = Assert-PathIsSafeForUninstall -CandidatePath $Destination
+} catch {
+    Write-Error $_
+    exit 1
+}
+
+Write-Host "Validated uninstall destination: '$validatedDestination'"
+
+Assert-ElevationIfRequired -DestinationPath $validatedDestination
 
 foreach ($name in $binaryNames) {
-    $binaryPath = Join-Path -Path $Destination -ChildPath $name
-    Remove-FileIfPresent -PathToRemove $binaryPath
+    $binaryPath = Join-Path -Path $validatedDestination -ChildPath $name
+    if ($PSCmdlet.ShouldProcess($binaryPath, 'Remove installed binary')) {
+        Remove-FileIfPresent -PathToRemove $binaryPath
+    } else {
+        Write-Verbose "Removal of '$binaryPath' skipped by user confirmation settings."
+    }
 }
-$directoryRemovedOrMissing = Remove-DirectoryIfEmpty -DirectoryPath $Destination
-if ($directoryRemovedOrMissing) {
-    Remove-FromUserPath -PathToRemove $Destination
+$directoryRemovedOrMissing = $false
+if ($PSCmdlet.ShouldProcess($validatedDestination, 'Remove installation directory if empty')) {
+    $directoryRemovedOrMissing = Remove-DirectoryIfEmpty -DirectoryPath $validatedDestination
 } else {
-    Write-Verbose "Skipping PATH cleanup because '$Destination' still contains files."
+    Write-Verbose 'Directory cleanup skipped by user confirmation settings.'
+}
+if ($directoryRemovedOrMissing) {
+    if ($PSCmdlet.ShouldProcess('User PATH', "Remove '$validatedDestination'")) {
+        Remove-FromUserPath -PathToRemove $validatedDestination
+    } else {
+        Write-Verbose 'User PATH cleanup skipped by user confirmation settings.'
+    }
+} else {
+    Write-Verbose "Skipping PATH cleanup because '$validatedDestination' still contains files."
 }
 
 Write-Host 'uninstall-wtouch.ps1 completed successfully.'
