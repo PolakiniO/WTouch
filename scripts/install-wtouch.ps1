@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
     [ValidateSet('cpp', 'c')]
     [string]$Variant = 'cpp',
@@ -26,6 +26,35 @@ function Get-NormalizedPath {
     } catch {
         return $PathSegment.TrimEnd('\\')
     }
+}
+
+function Assert-PathIsSafeForInstall {
+    param(
+        [Parameter(Mandatory = $true)][string]$CandidatePath,
+        [switch]$RequireExisting
+    )
+
+    $invalidChars = [System.IO.Path]::GetInvalidPathChars()
+    if ($CandidatePath.IndexOfAny($invalidChars) -ge 0) {
+        throw "Destination contains invalid path characters: '$CandidatePath'"
+    }
+
+    $normalized = Get-NormalizedPath -PathSegment $CandidatePath
+    if (-not $normalized) {
+        throw "Destination cannot be empty."
+    }
+
+    if (-not [System.IO.Path]::IsPathRooted($normalized)) {
+        throw "Destination must be an absolute path. Provided: '$CandidatePath'"
+    }
+
+    if ($RequireExisting.IsPresent) {
+        if (-not (Test-Path -LiteralPath $normalized -PathType Container)) {
+            throw "Destination '$normalized' must exist and be a directory before updating PATH."
+        }
+    }
+
+    return $normalized.TrimEnd('\\')
 }
 
 function Test-IsAdministrator {
@@ -110,9 +139,19 @@ function Resolve-BinaryPath {
     }
 }
 
-Assert-ElevationIfRequired -DestinationPath $Destination
+try {
+    $validatedDestination = Assert-PathIsSafeForInstall -CandidatePath $Destination
+} catch {
+    Write-Error $_
+    exit 1
+}
+
+Write-Host "Validated installation destination: '$validatedDestination'"
+
+Assert-ElevationIfRequired -DestinationPath $validatedDestination
 
 $shouldCopy = -not $SkipCopy
+$pathUpdateBlocked = $false
 if ($shouldCopy) {
     try {
         $resolvedBinary = Resolve-BinaryPath -Variant $Variant -BinaryPath $BinaryPath
@@ -124,8 +163,8 @@ if ($shouldCopy) {
     $primaryName = 'wtouch.exe'
     $variantName = if ($Variant -eq 'cpp') { 'wtouch-cpp.exe' } else { 'wtouch-c.exe' }
 
-    $primaryDestination = Join-Path -Path $Destination -ChildPath $primaryName
-    $variantDestination = Join-Path -Path $Destination -ChildPath $variantName
+    $primaryDestination = Join-Path -Path $validatedDestination -ChildPath $primaryName
+    $variantDestination = Join-Path -Path $validatedDestination -ChildPath $variantName
 
     $primaryExists = Test-Path -LiteralPath $primaryDestination
     $variantExists = $true
@@ -138,24 +177,38 @@ if ($shouldCopy) {
         $shouldCopy = $false
     }
 
-    if ($shouldCopy -and -not (Test-Path -LiteralPath $Destination)) {
-        Write-Verbose "Creating destination directory '$Destination'."
+    if ($shouldCopy -and -not (Test-Path -LiteralPath $validatedDestination)) {
+        Write-Verbose "Creating destination directory '$validatedDestination'."
         try {
-            New-Item -ItemType Directory -Path $Destination -Force -ErrorAction Stop | Out-Null
+            if ($PSCmdlet.ShouldProcess($validatedDestination, 'Create installation directory')) {
+                New-Item -ItemType Directory -Path $validatedDestination -Force -ErrorAction Stop | Out-Null
+            } else {
+                Write-Verbose 'Directory creation skipped by user confirmation settings.'
+                $shouldCopy = $false
+                $pathUpdateBlocked = $true
+            }
         } catch {
-            Write-Error "Failed to create destination directory '$Destination': $_"
+            Write-Error "Failed to create destination directory '$validatedDestination': $_"
             exit 1
         }
     }
 
     if ($shouldCopy) {
         try {
-            Copy-Item -LiteralPath $resolvedBinary -Destination $primaryDestination -Force:$Force.IsPresent -ErrorAction Stop
-            Write-Host "Copied '$resolvedBinary' to '$primaryDestination'."
+            if ($PSCmdlet.ShouldProcess($primaryDestination, "Copy '$resolvedBinary'")) {
+                Copy-Item -LiteralPath $resolvedBinary -Destination $primaryDestination -Force:$Force.IsPresent -ErrorAction Stop
+                Write-Host "Copied '$resolvedBinary' to '$primaryDestination'."
 
-            if (-not [StringComparer]::OrdinalIgnoreCase.Equals($primaryDestination, $variantDestination)) {
-                Copy-Item -LiteralPath $primaryDestination -Destination $variantDestination -Force:$Force.IsPresent -ErrorAction Stop
-                Write-Host "Created variant-specific copy at '$variantDestination'."
+                if (-not [StringComparer]::OrdinalIgnoreCase.Equals($primaryDestination, $variantDestination)) {
+                    if ($PSCmdlet.ShouldProcess($variantDestination, "Create variant copy from '$primaryDestination'")) {
+                        Copy-Item -LiteralPath $primaryDestination -Destination $variantDestination -Force:$Force.IsPresent -ErrorAction Stop
+                        Write-Host "Created variant-specific copy at '$variantDestination'."
+                    } else {
+                        Write-Verbose "Variant copy for '$variantDestination' skipped by user confirmation settings."
+                    }
+                }
+            } else {
+                Write-Verbose 'Binary copy skipped by user confirmation settings.'
             }
         } catch {
             Write-Error "Failed to copy '$resolvedBinary' to the destination: $_"
@@ -168,6 +221,15 @@ if ($shouldCopy) {
 
 function Add-ToUserPath {
     param([string]$PathToAdd)
+
+    try {
+        $normalizedTarget = Assert-PathIsSafeForInstall -CandidatePath $PathToAdd -RequireExisting
+    } catch {
+        Write-Error "Refusing to update PATH: $_"
+        exit 1
+    }
+
+    Write-Host "Validated installation path for PATH update: '$normalizedTarget'"
 
     $current = [Environment]::GetEnvironmentVariable('Path', 'User')
     if (-not $current) {
@@ -185,16 +247,31 @@ function Add-ToUserPath {
         Write-Host 'No non-empty user PATH entries found after parsing.'
     }
 
-    if ($segments -contains $PathToAdd) {
+    $outputSegments = @()
+    $alreadyPresent = $false
+    foreach ($segment in $segments) {
+        $outputSegments += $segment
+        $candidate = Get-NormalizedPath -PathSegment $segment
+        if ($candidate -and [StringComparer]::OrdinalIgnoreCase.Equals($candidate, $normalizedTarget)) {
+            $alreadyPresent = $true
+        }
+    }
+
+    if ($alreadyPresent) {
         Write-Host "Destination already present in the user PATH."
         return
     }
 
-    $segments += $PathToAdd
-    $newValue = ($segments -join ';')
+    if (-not $PSCmdlet.ShouldProcess('User PATH', "Append '$normalizedTarget'")) {
+        Write-Verbose 'User PATH update skipped by user confirmation settings.'
+        return
+    }
+
+    $outputSegments += $normalizedTarget
+    $newValue = ($outputSegments -join ';')
     [Environment]::SetEnvironmentVariable('Path', $newValue, 'User')
 
-    Write-Host "Updated user PATH will contain $($segments.Count) entries."
+    Write-Host "Updated user PATH will contain $($outputSegments.Count) entries."
     Write-Host "New user PATH raw value: '$newValue'"
 
     $processPath = [Environment]::GetEnvironmentVariable('Path', 'Process')
@@ -211,21 +288,36 @@ function Add-ToUserPath {
     } else {
         Write-Host 'No non-empty process PATH entries found after parsing.'
     }
-    if ($processSegments -notcontains $PathToAdd) {
-        $processSegments += $PathToAdd
-        [Environment]::SetEnvironmentVariable('Path', ($processSegments -join ';'), 'Process')
-        Write-Host 'Appended destination to the process PATH for the current session.'
+    $processOutputSegments = @()
+    $processAlreadyPresent = $false
+    foreach ($segment in $processSegments) {
+        $processOutputSegments += $segment
+        $candidate = Get-NormalizedPath -PathSegment $segment
+        if ($candidate -and [StringComparer]::OrdinalIgnoreCase.Equals($candidate, $normalizedTarget)) {
+            $processAlreadyPresent = $true
+        }
+    }
+    if (-not $processAlreadyPresent) {
+        if ($PSCmdlet.ShouldProcess('Process PATH', "Append '$normalizedTarget' for current session")) {
+            $processOutputSegments += $normalizedTarget
+            [Environment]::SetEnvironmentVariable('Path', ($processOutputSegments -join ';'), 'Process')
+            Write-Host 'Appended destination to the process PATH for the current session.'
+        } else {
+            Write-Verbose 'Process PATH update skipped by user confirmation settings.'
+        }
     } else {
         Write-Host 'Destination already present in the process PATH for the current session.'
     }
 
-    Write-Host "Added '$PathToAdd' to the user PATH. Open a new shell to use it everywhere."
+    Write-Host "Added '$normalizedTarget' to the user PATH. Open a new shell to use it everywhere."
 }
 
 if ($SkipPathUpdate) {
     Write-Verbose "Skipping PATH update step because -SkipPathUpdate was provided."
+} elseif ($pathUpdateBlocked) {
+    Write-Verbose "Skipping PATH update because installation directory creation was declined."
 } else {
-    Add-ToUserPath -PathToAdd $Destination
+    Add-ToUserPath -PathToAdd $validatedDestination
 }
 
 Write-Host "install-wtouch.ps1 completed successfully."
