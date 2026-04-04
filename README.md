@@ -5,13 +5,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/PolakiniO/WTouch)
 [![Language](https://img.shields.io/badge/language-C%2B%2B-00599C)](https://github.com/PolakiniO/WTouch)
 
-```text
- _       ________                 __
-| |     / /_  __/___  __  _______/ /_
-| | /| / / / / / __ \ / / / / ___/ __ \
-| |/ |/ / / / / /_/ / /_/ / /__/ / / /
-|__/|__/ /_/  \____/\__,_/\___/_/ /_/
-```
+![WTouch logo banner](./sources/IMG_9936.png)
 
 **Native Windows touch. No WSL. No friction. Just works.**
 
