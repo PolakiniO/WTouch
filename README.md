@@ -1,11 +1,11 @@
+![WTouch logo banner](./sources/IMG_9936.png)
+
 # WTouch
 
 [![Release](https://img.shields.io/github/v/release/PolakiniO/WTouch?label=release)](https://github.com/PolakiniO/WTouch/releases)
 [![License](https://img.shields.io/github/license/PolakiniO/WTouch)](https://github.com/PolakiniO/WTouch/blob/main/LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/PolakiniO/WTouch)
 [![Language](https://img.shields.io/badge/language-C%2B%2B-00599C)](https://github.com/PolakiniO/WTouch)
-
-![WTouch logo banner](./sources/IMG_9936.png)
 
 **Native Windows touch. No WSL. No friction. Just works.**
 
