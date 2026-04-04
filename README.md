@@ -1,4 +1,4 @@
-![WTouch logo banner](./sources/IMG_9936.png)
+![WTouch logo banner](./sources/CF8EF120-2A06-411D-8B7B-B981FC9DC52D.png)
 
 # WTouch
 
